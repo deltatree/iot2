@@ -1,0 +1,45 @@
+#!/usr/bin/perl
+
+use Device::SerialPort;
+use IO::Socket::INET;
+
+# auto-flush on socket
+$| = 1;
+
+# create a connecting socket
+my $socket = new IO::Socket::INET (
+    PeerHost => '192.168.188.198',
+    PeerPort => '1883',
+    Proto => 'tcp',
+);
+die "cannot connect to the server $!\n" unless $socket;
+
+$port = new Device::SerialPort("/dev/ttyUSB0");
+$port->baudrate(9600);
+#$port->parity("none");
+#$port->databits(8);
+#$port->stopbits(1);
+#$port->handshake("xoff");
+$port->write_settings;
+
+while (1)
+{
+	$bytein="";
+	#$port->lookclear;
+
+	while ($bytein eq "")
+	{
+	$bytein = $port->lookfor;
+	die "Device::SerialPort Aborted without match\n" unless (defined $bytein);
+	sleep 1;
+	}
+
+	my $data = sprintf("%s",$bytein);
+	($signal_strength, $attention, $meditation, $delta, $theta, $low_alpha, $high_alpha, $low_beta, $high_beta, $low_gamma, $high_gamma) = split(",",$data);
+	system("mosquitto_pub -h 192.168.188.198 -t de.fiduciagad.ari.brain -m $data");
+	print $signal_strength."\n";
+
+}
+
+$port->close();
+$socket->close();
